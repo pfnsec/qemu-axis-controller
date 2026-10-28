@@ -1,0 +1,50 @@
+#!/bin/sh
+case "$1" in
+    start)
+        operation=
+        terminal=0
+        for argument in $(cat /proc/cmdline); do
+            case "$argument" in
+                axi_lab.control=*) operation=${argument#*=} ;;
+                axi_lab.terminal=1) terminal=1 ;;
+            esac
+        done
+        test -n "$operation" || exit 0
+        run_control() {
+            mount -t debugfs debugfs /sys/kernel/debug || return 1
+            modprobe framefx || return 1
+            allocated_before=$(cat /sys/kernel/mm/cma/*/alloc_pages_success) || return 1
+            released_before=$(cat /sys/kernel/mm/cma/*/release_pages_success) || return 1
+            if test "$operation" = compat; then
+                mkdir -p /evidence || return 1
+                mount -t 9p -o trans=virtio,version=9p2000.L evidence /evidence || return 1
+                /evidence/framefx-compat32 || return 1
+                umount /evidence || return 1
+            else
+                framefx-control-test "$operation" || return 1
+            fi
+            if test "$terminal" = 1; then
+                if rmmod framefx; then return 1; fi
+                echo FRAMEFX_CONTROL_QUARANTINE_PASS
+            else
+                rmmod framefx || return 1
+                modprobe framefx || return 1
+                rmmod framefx || return 1
+                echo FRAMEFX_CONTROL_RELOAD_PASS
+            fi
+            allocated_after=$(cat /sys/kernel/mm/cma/*/alloc_pages_success) || return 1
+            released_after=$(cat /sys/kernel/mm/cma/*/release_pages_success) || return 1
+            allocated=$((allocated_after - allocated_before))
+            released=$((released_after - released_before))
+            echo "FRAMEFX_CONTROL_CMA allocated_pages=$allocated released_pages=$released"
+            test "$allocated" = 4 || return 1
+            if test "$terminal" = 1; then test "$released" = 0 || return 1; else test "$released" = 4 || return 1; fi
+            test "$(awk '/ debug_locks:/{print $2}' /proc/lockdep_stats)" = 1 || return 1
+            test "$(cat /sys/kernel/debug/dma-api/disabled)" = N || return 1
+            test "$(cat /sys/kernel/debug/dma-api/error_count)" = 0 || return 1
+            echo FRAMEFX_KERNEL_DEBUG_PASS
+        }
+        if run_control; then echo AXI_LAB_FRAMEFX_PASS; else echo AXI_LAB_FRAMEFX_FAIL; fi
+        poweroff
+        ;;
+esac

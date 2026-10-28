@@ -1,0 +1,26 @@
+#!/bin/sh
+case "$1" in
+    start)
+        case " $(cat /proc/cmdline) " in
+            *" axi_lab.smoke=1 "*) ;;
+            *) exit 0 ;;
+        esac
+        set -eu
+        trap 'echo AXI_LAB_BOOT_FAIL' EXIT
+        test "$(uname -m)" = aarch64
+        test -r /proc/device-tree/compatible
+        tr '\000' '\n' < /proc/device-tree/compatible | grep -qx 'linux,dummy-virt'
+        test -d /sys/firmware/devicetree/base
+        test -c /dev/ttyAMA0
+        printf 'Architecture: '
+        uname -m
+        printf 'Kernel: '
+        uname -r
+        printf 'DT model: '
+        tr '\000' '\n' < /proc/device-tree/model
+        cat /proc/interrupts
+        echo AXI_LAB_BOOT_PASS
+        trap - EXIT
+        poweroff
+        ;;
+esac

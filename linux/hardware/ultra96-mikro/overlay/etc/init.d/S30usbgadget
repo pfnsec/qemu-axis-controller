@@ -1,0 +1,126 @@
+#!/bin/sh
+set -eu
+umask 077
+gadget=/sys/kernel/config/usb_gadget/axi_lab
+stage=identity
+snapshot() {
+    for candidate in /sys/class/udc/*; do
+        [ -e "$candidate" ] || continue
+        printf 'USB_CONTROLLER=%s state=' "${candidate##*/}"
+        cat "$candidate/state" 2>/dev/null || true
+    done
+    if [ -f "$gadget/UDC" ]; then
+        printf 'USB_BOUND_CONTROLLER='
+        cat "$gadget/UDC" || true
+    fi
+}
+finish() {
+    result=$?
+    trap - EXIT
+    if [ "$result" -ne 0 ]; then
+        echo "AXI_LAB_USB_FAIL stage=$stage status=$result" >&2
+        snapshot
+        dmesg | tail -n 100 || true
+    fi
+    exit "$result"
+}
+bind_controller() {
+    for attempt in 1 2 3; do
+        echo "USB_BIND stage=$stage attempt=$attempt controller=$controller"
+        if (printf '%s\n' "$controller" > "$gadget/UDC"); then
+            [ "$(cat "$gadget/UDC")" = "$controller" ]
+            return
+        fi
+        [ -z "$(cat "$gadget/UDC")" ] || return 1
+        [ "$attempt" -eq 3 ] || sleep 1
+    done
+    return 1
+}
+case "${1:-}" in
+    start|stop) ;;
+    *) echo "Usage: $0 {start|stop}" >&2; exit 1 ;;
+esac
+if ! tr '\000' '\n' < /proc/device-tree/compatible 2>/dev/null | grep -qx 'avnet,ultra96-rev1'; then
+    echo 'USB gadget skipped: not an identified Ultra96 V1'
+    exit 0
+fi
+trap finish EXIT
+exec 9>/run/axi-lab-usb.lock
+flock -n 9 || { echo 'USB gadget operation already in progress' >&2; exit 1; }
+if [ "$1" = stop ]; then
+    stage=stop
+    [ ! -f "$gadget/UDC" ] || [ -z "$(cat "$gadget/UDC")" ] || printf '\n' > "$gadget/UDC"
+    start-stop-daemon -K -q -o -p /run/udhcpd.pid -x /usr/sbin/udhcpd
+    exit 0
+fi
+stage=configfs
+mountpoint -q /sys/kernel/config || mount -t configfs configfs /sys/kernel/config
+[ -d /sys/kernel/config/usb_gadget ] || { echo 'USB gadget configfs subsystem missing' >&2; exit 1; }
+stage=wait-controller
+controller=
+for elapsed in $(seq 0 30); do
+    for candidate in /sys/class/udc/*; do
+        [ -e "$candidate" ] || continue
+        [ -z "$controller" ] || { echo 'Multiple USB controllers; refusing to guess' >&2; exit 1; }
+        controller=${candidate##*/}
+    done
+    [ -z "$controller" ] || break
+    [ "$elapsed" -eq 30 ] || sleep 1
+done
+if [ -z "$controller" ]; then
+    echo 'USB gadget unavailable: no UDC after 30 seconds' >&2
+    exit 1
+fi
+stage=ownership
+for binding in /sys/kernel/config/usb_gadget/*/UDC; do
+    [ -f "$binding" ] || continue
+    [ "$binding" = "$gadget/UDC" ] || [ "$(cat "$binding")" != "$controller" ] || {
+        echo 'USB controller belongs to another gadget; leaving it intact' >&2
+        exit 1
+    }
+done
+if [ -f "$gadget/UDC" ] && [ -n "$(cat "$gadget/UDC")" ]; then
+    [ "$(cat "$gadget/UDC")" = "$controller" ]
+    echo 'USB gadget is already bound; preserving the live connection'
+else
+    stage=configure
+    mkdir -p /var/lib/axi-lab /var/lib/misc
+    if [ ! -e /var/lib/axi-lab/gadget-id ]; then
+        tr -d '-' < /proc/sys/kernel/random/uuid > /var/lib/axi-lab/gadget-id.tmp
+        mv /var/lib/axi-lab/gadget-id.tmp /var/lib/axi-lab/gadget-id
+    fi
+    serial=$(cat /var/lib/axi-lab/gadget-id)
+    printf '%s\n' "$serial" | grep -Eq '^[0-9a-f]{32}$' || { echo 'Invalid persistent gadget identity' >&2; exit 1; }
+    mkdir -p "$gadget"
+    printf '0x03fd\n' > "$gadget/idVendor"
+    printf '0x010d\n' > "$gadget/idProduct"
+    printf '0x0100\n' > "$gadget/bcdDevice"
+    printf '0x0200\n' > "$gadget/bcdUSB"
+    printf '0xef\n' > "$gadget/bDeviceClass"
+    printf '0x02\n' > "$gadget/bDeviceSubClass"
+    printf '0x01\n' > "$gadget/bDeviceProtocol"
+    mkdir -p "$gadget/strings/0x409" "$gadget/configs/c.1/strings/0x409"
+    printf '%s\n' "$serial" > "$gadget/strings/0x409/serialnumber"
+    printf 'Avnet\n' > "$gadget/strings/0x409/manufacturer"
+    printf 'Ultra96 AXI lab mikro\n' > "$gadget/strings/0x409/product"
+    printf 'ECM network and ACM console\n' > "$gadget/configs/c.1/strings/0x409/configuration"
+    printf '250\n' > "$gadget/configs/c.1/MaxPower"
+    mkdir -p "$gadget/functions/ecm.usb0" "$gadget/functions/acm.usb0"
+    mac_tail=$(printf '%s' "$serial" | cut -c1-10 | sed 's/../&:/g;s/:$//')
+    printf '02:%s\n' "$mac_tail" > "$gadget/functions/ecm.usb0/host_addr"
+    printf '06:%s\n' "$mac_tail" > "$gadget/functions/ecm.usb0/dev_addr"
+    [ -L "$gadget/configs/c.1/ecm.usb0" ] || ln -s "$gadget/functions/ecm.usb0" "$gadget/configs/c.1/"
+    [ -L "$gadget/configs/c.1/acm.usb0" ] || ln -s "$gadget/functions/acm.usb0" "$gadget/configs/c.1/"
+    stage=initial-bind
+    bind_controller
+    stage=initial-rebind
+    printf '\n' > "$gadget/UDC"
+    sleep 1
+    bind_controller
+fi
+stage=network
+ifconfig usb0 192.168.3.1 netmask 255.255.255.0 up
+mkdir -p /var/lib/misc
+start-stop-daemon -S -q -o -p /run/udhcpd.pid -x /usr/sbin/udhcpd -- /etc/udhcpd.conf 9>&-
+snapshot
+echo 'AXI_LAB_USB_READY address=192.168.3.1 protocol=ECM ssh=KEY_ONLY mass_storage=DISABLED enumeration=NOT_VERIFIED'

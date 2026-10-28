@@ -1,0 +1,15 @@
+#!/bin/sh
+case "${1:-}" in
+    start)
+        mkdir -p /var/lib/axi-lab
+        [ ! -f /var/lib/axi-lab/display.log ] || mv /var/lib/axi-lab/display.log /var/lib/axi-lab/display.log.previous
+        /usr/sbin/axi-lab-probe
+        start-stop-daemon -S -q -b -m -p /run/axi-lab-display.pid \
+            --exec /usr/bin/axi-lab-display -- --framebuffer /dev/fb0 \
+            >> /var/lib/axi-lab/display.log 2>&1
+        ;;
+    stop)
+        start-stop-daemon -K -q -p /run/axi-lab-display.pid
+        ;;
+    *) echo "Usage: $0 {start|stop}" >&2; exit 1 ;;
+esac

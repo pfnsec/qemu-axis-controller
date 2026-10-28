@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "sources": {
+    "qemu": {
+      "kind": "archive",
+      "version": "10.2.4",
+      "commit": "3e0bcba1ca7d6607ca49a988d165f052a3a53323",
+      "url": "https://download.qemu.org/qemu-10.2.4.tar.xz",
+      "sha256": "821b545b92f165e57dddccac5077d76d4d436a226595b8813ad59306bbfd0746",
+      "directory": "qemu-10.2.4",
+      "excluded_archive_members": [
+        "qemu-10.2.4/roms/edk2/EmulatorPkg/Unix/Host/X11IncludeHack"
+      ],
+      "license": "GPL-2.0 with per-file exceptions; see COPYING and LICENSE"
+    },
+    "buildroot": {
+      "kind": "archive",
+      "version": "2025.02.18",
+      "commit": "d030e36bbc9669230c015be971b14b6e062cfdde",
+      "url": "https://buildroot.org/downloads/buildroot-2025.02.18.tar.xz",
+      "sha256": "e38ad1df6ea0479fff6419a87a64535d02131674d463be154a763ef725b55321",
+      "directory": "buildroot-2025.02.18",
+      "excluded_archive_members": [
+        "buildroot-2025.02.18/package/skeleton-init-openrc/skeleton/etc/runlevels/default/sysv-rcs"
+      ],
+      "license": "GPL-2.0; generated system has per-package licenses"
+    },
+    "libsystemctlm-soc": {
+      "kind": "git",
+      "commit": "788e8b24b5d658780a55e97511082b1540fe92ab",
+      "url": "https://github.com/Xilinx/libsystemctlm-soc.git",
+      "directory": "libsystemctlm-soc",
+      "license": "Per-file licenses; reference only"
+    },
+    "systemctlm-cosim-demo": {
+      "kind": "git",
+      "commit": "b36e1dd35265528918b32c8924baa6bf2f41e3c6",
+      "url": "https://github.com/Xilinx/systemctlm-cosim-demo.git",
+      "directory": "systemctlm-cosim-demo",
+      "license": "Per-file licenses; reference only"
+    },
+    "avnet-bdf": {
+      "kind": "git",
+      "commit": "e9723b55a68b106fb4cdb645974d096cd3594a2a",
+      "url": "https://github.com/Avnet/bdf.git",
+      "directory": "avnet-bdf",
+      "license": "Avnet terms in source files; reference only, redistribution not assumed"
+    },
+    "avnet-bdf-ultra96v1": {
+      "kind": "git",
+      "version": "Ultra96v1_2018_2",
+      "commit": "8ebeb29be67057511f09744361eeab333395f594",
+      "url": "https://github.com/Avnet/bdf.git",
+      "directory": "avnet-bdf-ultra96v1",
+      "license": "Avnet terms in source files; historical V1 preset, reference only"
+    }
+  },
+  "guest": {
+    "linux": "6.12.109",
+    "linux_sha256": "5484e552a334e15019f4aeba89e5b58f04651cf2f4e24e04de9f152f1c38e3fa",
+    "toolchain": "aarch64--glibc--stable-2024.05-1",
+    "toolchain_sha256": "b0fad860eb94b503a56d66ca8b9ba06d2d4826943e37ebd1d7217423f6ea5bb2",
+    "dependency_hashes": "Pinned Buildroot package .hash files; BR2_DOWNLOAD_FORCE_CHECK_HASHES=y"
+  },
+  "host_baseline": {
+    "os": "Fedora Linux 44 x86_64",
+    "gcc": "16.2.1",
+    "python": "3.14.7",
+    "meson": "1.11.2",
+    "verilator": "5.046",
+    "verilator_upstream_commit": "24b2ac24c721fdad89bba75a492e02c6aa63f32e",
+    "vivado": "2026.1 build 6511674",
+    "policy": "Host tools recorded, not installed by this project. Vivado compatibility remains unvalidated."
+  },
+  "qemu_subprojects": {
+    "dtc": {
+      "url": "https://gitlab.com/qemu-project/dtc.git",
+      "commit": "b6910bec11614980a21e46fbccc35934b671bd81",
+      "provenance": "subprojects/dtc.wrap in the pinned QEMU archive"
+    }
+  }
+}

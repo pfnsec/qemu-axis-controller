@@ -1,0 +1,14 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target-path = "/";
+        __overlay__ {
+            axi-lab-afi {
+                compatible = "xlnx,afi-fpga";
+                config-afi = <4 0>, <5 0>, <15 0>;
+            };
+        };
+    };
+};

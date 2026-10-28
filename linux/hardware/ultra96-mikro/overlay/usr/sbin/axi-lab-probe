@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+umask 077
+mkdir -p /var/lib/axi-lab
+temporary=/var/lib/axi-lab/boot-report.txt.tmp
+{
+    echo 'AXI_LAB_MIKRO_BOOT_REPORT schema=1'
+    date -u
+    uname -a
+    cat /etc/axi-lab-release
+    sha256sum /usr/bin/axi-lab-display
+    echo 'FRAMEFX_PL=NOT_LOADED_NOT_TESTED PHYSICAL_DMA=NOT_TESTED PHYSICAL_IRQ=NOT_TESTED'
+    echo 'DISPLAY_VISIBLE=REQUIRES_OPERATOR_OBSERVATION'
+    echo 'MODEL:'
+    tr '\000' '\n' < /proc/device-tree/model 2>/dev/null || true
+    echo 'COMPATIBLE:'
+    tr '\000' '\n' < /proc/device-tree/compatible 2>/dev/null || true
+    echo 'BOOT_ID:'
+    cat /proc/sys/kernel/random/boot_id
+    echo 'USB_CONTROLLERS:'
+    for controller in /sys/class/udc/*; do
+        [ -e "$controller" ] || continue
+        printf '%s state=' "${controller##*/}"
+        cat "$controller/state" 2>/dev/null || true
+    done
+    echo 'USB_GADGET_BINDING:'
+    cat /sys/kernel/config/usb_gadget/axi_lab/UDC 2>/dev/null || true
+    echo 'CMDLINE:'
+    cat /proc/cmdline
+    echo 'MEMORY:'
+    cat /proc/meminfo
+    echo 'FRAMEBUFFER:'
+    cat /proc/fb 2>/dev/null || true
+    for connector in /sys/class/drm/card*-*/status; do
+        [ -f "$connector" ] || continue
+        printf '%s: ' "$connector"
+        cat "$connector"
+    done
+    echo 'NETWORK:'
+    ip address show
+    ip route
+    cat /etc/resolv.conf || true
+    iw dev || true
+    rfkill list || true
+    lsmod
+    echo 'WIRELESS_STATUS:'
+    /usr/sbin/axi-lab-wifi status || true
+    echo 'CLOCK:'
+    date -u
+    echo 'Clock must be checked before TLS; no unauthenticated time source is enabled automatically'
+    echo 'DISK:'
+    df -h
+    echo 'DMESG:'
+    dmesg
+} > "$temporary"
+[ ! -f /var/lib/axi-lab/boot-report.txt ] || mv /var/lib/axi-lab/boot-report.txt /var/lib/axi-lab/boot-report.txt.previous
+mv "$temporary" /var/lib/axi-lab/boot-report.txt
+echo 'AXI_LAB_MIKRO_DIAGNOSTICS_CAPTURED display=OPERATOR_CHECK framefx=NOT_TESTED'

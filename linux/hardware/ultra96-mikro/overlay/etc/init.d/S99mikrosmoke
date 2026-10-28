@@ -1,0 +1,22 @@
+#!/bin/sh
+[ "${1:-}" = start ] || exit 0
+case " $(cat /proc/cmdline) " in
+    *' axi_lab.mikro_smoke=1 '*) ;;
+    *) exit 0 ;;
+esac
+if [ "$(uname -m)" = aarch64 ] && /usr/bin/axi-lab-display --render /tmp/mikro.ppm \
+    && /usr/sbin/axi-lab-check-userspace \
+    && test -s /tmp/mikro.ppm && test -s /var/lib/axi-lab/boot-report.txt \
+    && test -s /var/lib/axi-lab/boot-kernel.log \
+    && test "$(stat -c %a /var/lib/axi-lab/init.log)" = 600 \
+    && grep -qx 'AXI_LAB_INIT_RESULT service=S30usbgadget status=0' /var/lib/axi-lab/init.log \
+    && ! grep -Eq '^AXI_LAB_INIT_RESULT .* status=[1-9][0-9]*$' /var/lib/axi-lab/init.log \
+    && test -s /root/.ssh/authorized_keys && pidof dropbear >/dev/null; then
+    sha256sum /tmp/mikro.ppm
+    sha256sum /usr/bin/axi-lab-display
+    cat /etc/axi-lab-release
+    echo 'AXI_LAB_MIKRO_USERSPACE_PASS hardware=NOT_TESTED'
+else
+    echo 'AXI_LAB_MIKRO_USERSPACE_FAIL'
+fi
+poweroff

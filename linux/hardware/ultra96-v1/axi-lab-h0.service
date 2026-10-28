@@ -1,0 +1,13 @@
+[Unit]
+Description=axi-cosim-lab H0 read-only boot diagnostics
+After=local-fs.target systemd-udev-trigger.service
+Before=pynq-x11.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/axi-lab/board_probe.py
+TimeoutStartSec=50
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

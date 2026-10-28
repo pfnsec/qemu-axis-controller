@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "part": "xczu3eg-sbva484-1-e",
+  "vivado": "2026.1",
+  "board_part": "em.avnet.com:ultra96v1:part0:1.2",
+  "board_commit": "8ebeb29be67057511f09744361eeab333395f594",
+  "kernel": "5.15.19-xilinx-v2022.1",
+  "boot_sha256": "72ee25ec0be2625347c780ea44d71758092748f5176547bd664e91963d4ff058",
+  "image_ub_sha256": "61fe4353e2d4c522faa35787881024d048eda7c59c6f4d73fa28e845408e71c2",
+  "vendor_dtb_sha256": "e078b89a2df8276e7aaafe6b334ccf70ff3f7627ae7aa4d5ddfb0bb7279d8291",
+  "vendor_reference_hwh_sha256": "3b36238c4d8cb9f8bde6523dda9377cca148713792e4e16aa4d8044e98fc5a2b",
+  "vendor_reference_hwh": "PYNQ 3.0.1 pynq/overlays/sensors96b/sensors96b.hwh; reference metadata, not live PS register readback",
+  "control": {"port": "M_AXI_HPM0_LPD", "base": 2147483648, "bytes": 4096, "ps_data_bits": 32},
+  "dma": {"port": "S_AXI_HP0_FPD", "base": 0, "bytes": 2147483648, "ps_data_bits": 128, "core_data_bits": 64, "coherent": false},
+  "interrupt": {"port": "pl_ps_irq0[0]", "gic_id": 121, "dt_spi": 89, "trigger": 4},
+  "clock": {"port": "pl_clk0", "hz": 100000000, "dt_id": 71},
+  "reset": {"source": "pl_resetn0", "synchronizer": "proc_sys_reset", "polarity": "active-low"},
+  "policy": "Volatile full-PL load only after review. No PS initialization script, BOOT.BIN/image.ub replacement, external PL IO, automatic startup or hot reload. Reboot/power-cycle restores the untouched vendor boot baseline."
+}

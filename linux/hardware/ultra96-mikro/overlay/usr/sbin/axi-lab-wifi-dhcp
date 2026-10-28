@@ -1,0 +1,51 @@
+#!/bin/sh
+set -eu
+case "${interface:-}" in
+    ''|*[!a-zA-Z0-9_.-]*) exit 1 ;;
+esac
+[ -d "/sys/class/net/$interface/wireless" ] || exit 1
+ipv4() {
+    printf '%s\n' "$1" | awk -F. 'NF != 4 {exit 1} {for (part=1; part<=4; part++) if ($part !~ /^[0-9]+$/ || length($part)>3 || $part>255) exit 1}'
+}
+decimal() {
+    printf '%s\n' "$1" | awk -F. '{printf "%.0f\n", $1*16777216+$2*65536+$3*256+$4}'
+}
+case "${1:-}" in
+    deconfig)
+        ip -4 route flush dev "$interface" || true
+        ip -4 address flush dev "$interface"
+        : > /run/resolv.conf
+        ;;
+    bound|renew)
+        ipv4 "${ip:-}" && ipv4 "${subnet:-}" || exit 1
+        for address in ${router:-} ${dns:-}; do ipv4 "$address" || exit 1; done
+        address_value=$(decimal "$ip")
+        mask_value=$(decimal "$subnet")
+        inverse=$((4294967295 ^ mask_value))
+        [ $((inverse & (inverse + 1))) = 0 ] || exit 1
+        network=$((address_value & mask_value))
+        last_address=$((network | inverse))
+        if [ "$network" -le 3232236543 ] && [ "$last_address" -ge 3232236288 ]; then
+            logger -t axi-wifi 'Rejected DHCP subnet overlapping the 192.168.3.0/24 USB rescue network'
+            exit 1
+        fi
+        for gateway in ${router:-}; do
+            gateway_value=$(decimal "$gateway")
+            [ $((gateway_value & mask_value)) = "$network" ] || exit 1
+        done
+        ip -4 route flush dev "$interface" || true
+        ifconfig "$interface" "$ip" netmask "$subnet" up
+        for gateway in ${router:-}; do
+            ip -4 route add default via "$gateway" dev "$interface" metric 600
+            break
+        done
+        umask 022
+        temporary=$(mktemp /run/resolv.conf.XXXXXX)
+        for address in ${dns:-}; do printf 'nameserver %s\n' "$address"; done > "$temporary"
+        chmod 644 "$temporary"
+        mv "$temporary" /run/resolv.conf
+        logger -t axi-wifi "DHCP configured $interface address=$ip; USB rescue interface unchanged"
+        ;;
+    leasefail|nak) logger -t axi-wifi "DHCP ${1} on $interface; client keeps retrying" ;;
+    *) exit 1 ;;
+esac

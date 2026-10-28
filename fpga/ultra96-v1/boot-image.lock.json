@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "board": "Avnet Ultra96 V1",
+  "stage": "H0 Linux and DisplayPort baseline; no framefx PL design",
+  "release_url": "https://github.com/Avnet/Ultra96-PYNQ/releases/tag/v3.0.1",
+  "release_commit": "a5fcafe563045e40a149cc7edeb7bd38c0db64a1",
+  "archive_url": "https://github.com/Avnet/Ultra96-PYNQ/releases/download/v3.0.1/Ultra96v1-3.0.1.7z",
+  "archive_bytes": 1350784643,
+  "archive_sha256": "a7869e8fe68f45d0b9d8b57a1bb646e47131f75ba3be2390e2e3f3846f7913e9",
+  "image_name": "Ultra96v1-3.0.1.img",
+  "image_bytes": 9858258944,
+  "image_sha256": "72432eda339115799ef1774f5c4656233849e0a1e0fe62d06bcf2306b251f762",
+  "hash_provenance": "Locally measured from Avnet HTTPS release download; upstream does not publish a SHA256/signature for this asset. 7z CRC also verified.",
+  "kernel": "5.15.19-xilinx-v2022.1",
+  "rootfs": "PYNQ 3.0.1, Ubuntu 22.04 based",
+  "partitions": [
+    {"start": 8, "size": 266240, "type": "c"},
+    {"start": 268288, "size": 18986124, "type": "83"}
+  ],
+  "policy": "Preserve vendor boot firmware, kernel and device tree for H0. Keep this historical image on a trusted isolated connection; default credentials are not suitable for exposed networks."
+}

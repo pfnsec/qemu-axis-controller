@@ -1,0 +1,3 @@
+config BR2_PACKAGE_AXI_SPIKE
+	bool "axi-spike concurrency self-test module"
+	depends on BR2_LINUX_KERNEL

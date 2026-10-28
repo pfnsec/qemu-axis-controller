@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+interface=${1:-}
+case "$interface" in
+    ''|*[!a-zA-Z0-9_.-]*) exit 1 ;;
+esac
+[ -d "/sys/class/net/$interface/wireless" ] || exit 1
+pidfile=/run/udhcpc-axi-$interface.pid
+case "${2:-}" in
+    CONNECTED)
+        if [ -f "$pidfile" ] && kill -0 "$(cat "$pidfile")" 2>/dev/null; then
+            exit 0
+        fi
+        udhcpc -b -R -i "$interface" -p "$pidfile" -t 3 -T 3 \
+            -s /usr/sbin/axi-lab-wifi-dhcp >/dev/null 2>&1
+        ;;
+    DISCONNECTED)
+        if [ -f "$pidfile" ]; then
+            start-stop-daemon -K -q -p "$pidfile" || true
+            rm -f "$pidfile"
+        fi
+        interface="$interface" /usr/sbin/axi-lab-wifi-dhcp deconfig
+        ;;
+    *) exit 1 ;;
+esac

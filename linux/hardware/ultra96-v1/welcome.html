@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'">
+<title>axi-cosim-lab · Ultra96 V1 · H0</title>
+<style>
+* {box-sizing:border-box} body {margin:0;background:#101722;color:#e9f1fb;font:17px system-ui,sans-serif}
+main {max-width:1250px;margin:auto;padding:28px 36px} header {display:flex;justify-content:space-between;align-items:center;gap:24px}
+.eyebrow {color:#5fe2c6;letter-spacing:3px;font-size:13px;font-weight:700} h1 {font-size:38px;margin:8px 0} h2 {font-size:18px;margin:0 0 12px}
+.muted {color:#a5b6cc} .badge {border:1px solid #347c71;color:#7ef2d7;border-radius:30px;padding:10px 18px;white-space:nowrap}
+.notice {margin:22px 0;padding:15px 20px;border-left:4px solid #f8c16b;background:#242534;color:#ffdb9c;line-height:1.5}
+.grid {display:grid;grid-template-columns:1fr 1fr;gap:20px} .panel {background:#192333;border:1px solid #2c3b50;border-radius:12px;padding:20px}
+canvas {display:block;width:100%;aspect-ratio:4/3;image-rendering:pixelated;background:#000;border-radius:5px}
+.label {display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:14px}
+.controls {display:flex;gap:10px;flex-wrap:wrap;margin:20px 0} button {font:inherit;background:#25354b;color:#e9f1fb;border:1px solid #4a607b;border-radius:8px;padding:9px 17px;cursor:pointer}
+button[aria-pressed=true] {background:#4cddbd;color:#0d2725;border-color:#4cddbd} button:focus-visible {outline:3px solid #fff;outline-offset:2px}
+.details {display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin:22px 0} .details strong {display:block;margin:5px 0;font-size:15px;overflow-wrap:anywhere}
+footer {display:flex;justify-content:space-between;gap:24px;color:#a5b6cc;font-size:13px;line-height:1.6} code {color:#cbe5ff}
+@media(max-width:700px) {main{padding:20px} h1{font-size:28px} .grid,.details{grid-template-columns:1fr} header,footer{display:block} .badge{display:inline-block;margin-top:12px}}
+</style>
+</head>
+<body><main>
+<header><div><div class="eyebrow">AXI-COSIM-LAB / HARDWARE BRING-UP</div><h1>Hello, Ultra96 V1.</h1><div class="muted">Linux → PS DisplayPort → your monitor</div></div><div class="badge">H0 · BOOT + DISPLAY</div></header>
+<div class="notice"><strong>CPU reference visualization — not FPGA acceleration.</strong><br>This image preserves Avnet's boot firmware. The framefx PL design is not loaded or tested; physical DMA and IRQ validation are still ahead.</div>
+<div class="grid">
+<section class="panel"><div class="label"><strong>GENERATED INPUT</strong><span class="muted">320 × 240 · grayscale</span></div><canvas id="input" width="320" height="240" aria-label="Generated reference input"></canvas></section>
+<section class="panel"><div class="label"><strong id="mode-name">SOBEL · CPU REFERENCE</strong><span id="frame-count" class="muted">starting</span></div><canvas id="output" width="320" height="240" aria-label="CPU reference filter output"></canvas></section>
+</div>
+<nav class="controls" aria-label="CPU reference filter">
+<button data-mode="0" aria-pressed="false">1 · Copy</button><button data-mode="1" aria-pressed="false">2 · Invert</button><button data-mode="2" aria-pressed="false">3 · Threshold</button><button data-mode="3" aria-pressed="true">4 · Sobel</button><button id="pause">Pause motion</button>
+</nav>
+<section class="details"><div><span class="eyebrow">BOARD IDENTITY</span><strong id="board">Boot diagnostics not yet available</strong></div><div><span class="eyebrow">RUNNING KERNEL</span><strong id="kernel">Unverified</strong></div><div><span class="eyebrow">DISPLAY CONNECTOR SNAPSHOT</span><strong id="connector">Operator observation required</strong></div></section>
+<footer><div>Keys <strong>1–4</strong>: filter · <strong>Space</strong>: pause · <strong>F11</strong>: browser fullscreen<br>If you can see this page moving, please report the display result.</div><div>Boot evidence: <code>/var/lib/axi-lab/boot-report.json</code><br>Next gates: H1 registers → H2 DMA/IRQ → H3 all filters on PL</div></footer>
+</main>
+<script src="axi-lab-status.js"></script>
+<script src="axi-lab-reference.js"></script>
+<script>
+"use strict";
+const names = ["COPY", "INVERT", "THRESHOLD", "SOBEL"];
+const width = 320, height = 240;
+const source = new Uint8Array(width * height);
+const inputContext = document.getElementById("input").getContext("2d");
+const outputContext = document.getElementById("output").getContext("2d");
+let mode = 3, frame = 0, paused = false;
+function draw(context, pixels) {
+    const image = context.createImageData(width, height);
+    for (let index = 0; index < pixels.length; index++) {
+        image.data[index * 4] = image.data[index * 4 + 1] = image.data[index * 4 + 2] = pixels[index];
+        image.data[index * 4 + 3] = 255;
+    }
+    context.putImageData(image, 0, 0);
+}
+function render() {
+    for (let row = 0; row < height; row++) {
+        for (let column = 0; column < width; column++) {
+            const center = 160 + Math.round(60 * Math.sin(frame / 18));
+            const radius = (column - center) ** 2 + (row - 120) ** 2;
+            let pixel = ((column >> 5) + (row >> 5)) % 2 ? 42 : 78;
+            if (column > 22 && column < 95 && row > 25 && row < 215) pixel = Math.round(row * 255 / 239);
+            if (radius < 65 ** 2) pixel = 220;
+            if (radius < 35 ** 2) pixel = 25;
+            if (column > 260 && row % 30 < 15) pixel = 245;
+            source[row * width + column] = pixel;
+        }
+    }
+    draw(inputContext, source);
+    draw(outputContext, FramefxReference.transform(source, width, height, mode, 127));
+    document.getElementById("mode-name").textContent = names[mode] + " · CPU REFERENCE";
+    document.getElementById("frame-count").textContent = "frame " + frame;
+}
+function selectMode(selected) {
+    mode = selected;
+    for (const button of document.querySelectorAll("[data-mode]")) button.setAttribute("aria-pressed", Number(button.dataset.mode) === mode);
+    render();
+}
+function pause() {
+    paused = !paused;
+    document.getElementById("pause").textContent = paused ? "Resume motion" : "Pause motion";
+}
+for (const button of document.querySelectorAll("[data-mode]")) button.addEventListener("click", () => selectMode(Number(button.dataset.mode)));
+document.getElementById("pause").addEventListener("click", pause);
+document.addEventListener("keydown", event => {
+    if (event.key >= "1" && event.key <= "4") selectMode(Number(event.key) - 1);
+    if (event.code === "Space") { event.preventDefault(); pause(); }
+});
+const diagnostics = window.AXI_LAB_STATUS;
+if (diagnostics) {
+    document.getElementById("board").textContent = diagnostics.model + " / " + diagnostics.board_identity;
+    document.getElementById("kernel").textContent = diagnostics.kernel || "Unverified";
+    document.getElementById("connector").textContent = diagnostics.connectors.map(connector => connector.name + ": " + connector.status).join(" · ") || "No connector observed at boot";
+}
+render();
+setInterval(() => { if (!paused) { frame++; render(); } }, 150);
+</script></body></html>

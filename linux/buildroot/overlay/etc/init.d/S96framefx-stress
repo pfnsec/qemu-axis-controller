@@ -1,0 +1,46 @@
+#!/bin/sh
+case "$1" in
+    start)
+        jobs=0
+        seed=1
+        for argument in $(cat /proc/cmdline); do
+            case "$argument" in
+                axi_lab.stress=*) jobs=${argument#*=} ;;
+                axi_lab.seed=*) seed=${argument#*=} ;;
+            esac
+        done
+        test "$jobs" != 0 || exit 0
+        run_stress() {
+            mount -t debugfs debugfs /sys/kernel/debug || return 1
+            test "$(cat /sys/kernel/debug/dma-api/disabled)" = N || return 1
+            test "$(cat /sys/kernel/debug/dma-api/error_count)" = 0 || return 1
+            modprobe framefx || return 1
+            mkdir -p /evidence || return 1
+            mount -t 9p -o trans=virtio,version=9p2000.L evidence /evidence || return 1
+            allocated_before=$(cat /sys/kernel/mm/cma/*/alloc_pages_success) || return 1
+            released_before=$(cat /sys/kernel/mm/cma/*/release_pages_success) || return 1
+            (cd /evidence && framefx-stress "$jobs" "$seed") || return 1
+            rmmod framefx || return 1
+            modprobe framefx || return 1
+            framefx-lifecycle || return 1
+            rmmod framefx || return 1
+            allocated_after=$(cat /sys/kernel/mm/cma/*/alloc_pages_success) || return 1
+            released_after=$(cat /sys/kernel/mm/cma/*/release_pages_success) || return 1
+            allocated=$((allocated_after - allocated_before))
+            released=$((released_after - released_before))
+            echo "FRAMEFX_CMA allocated_pages=$allocated released_pages=$released"
+            test "$allocated" -gt 0 && test "$allocated" = "$released" || return 1
+            cat /proc/lockdep_stats > /evidence/lockdep.txt || return 1
+            test "$(awk '/ debug_locks:/{print $2}' /proc/lockdep_stats)" = 1 || return 1
+            test "$(cat /sys/kernel/debug/dma-api/disabled)" = N || return 1
+            test "$(cat /sys/kernel/debug/dma-api/error_count)" = 0 || return 1
+            cat /proc/interrupts > /evidence/interrupts.txt || return 1
+            echo FRAMEFX_KERNEL_DEBUG_PASS
+            echo FRAMEFX_CMA_PASS
+            sync
+            umount /evidence || return 1
+        }
+        if run_stress; then echo AXI_LAB_FRAMEFX_PASS; else echo AXI_LAB_FRAMEFX_FAIL; fi
+        poweroff
+        ;;
+esac

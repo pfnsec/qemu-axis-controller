@@ -1,0 +1,37 @@
+#!/bin/sh
+umask 077
+directory=/var/lib/axi-lab
+if mkdir -p "$directory" && chmod 700 "$directory"; then
+    for name in init.log boot-kernel.log; do
+        [ ! -f "$directory/$name" ] || mv -f "$directory/$name" "$directory/$name.previous"
+    done
+    log=$directory/init.log
+    dmesg > "$directory/boot-kernel.log" 2>&1
+else
+    echo 'AXI_LAB_INIT_LOG_FAIL persistent directory unavailable' >&2
+    log=/dev/null
+fi
+{
+    echo 'AXI_LAB_INIT_BEGIN'
+    printf 'BOOT_ID='
+    cat /proc/sys/kernel/random/boot_id
+    cat /etc/axi-lab-release
+    uname -a
+    cat /proc/cmdline
+    cat /proc/mounts
+} | tee -a "$log"
+sync
+for service in /etc/init.d/S??*; do
+    [ -f "$service" ] || continue
+    (
+        echo "AXI_LAB_INIT_START service=${service##*/}"
+        case "$service" in
+            *.sh) (trap - INT QUIT TSTP; set -- start; . "$service") ;;
+            *) "$service" start ;;
+        esac
+        result=$?
+        echo "AXI_LAB_INIT_RESULT service=${service##*/} status=$result"
+    ) 2>&1 | tee -a "$log"
+    sync
+done
+echo 'AXI_LAB_INIT_END' | tee -a "$log"

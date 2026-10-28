@@ -1,0 +1,16 @@
+#!/bin/sh
+case "$1" in
+    start)
+        case " $(cat /proc/cmdline) " in
+            *" axi_lab.spike=1 "*) ;;
+            *) exit 0 ;;
+        esac
+        if modprobe axi_spike && test "$(cat /sys/module/axi_spike/parameters/result)" = 0; then
+            cat /proc/interrupts
+            echo AXI_LAB_SPIKE_PASS
+        else
+            echo AXI_LAB_SPIKE_FAIL
+        fi
+        poweroff
+        ;;
+esac

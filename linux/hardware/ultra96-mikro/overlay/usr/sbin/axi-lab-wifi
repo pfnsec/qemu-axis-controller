@@ -1,0 +1,73 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+    status)
+        iw dev
+        rfkill list
+        for wireless in /sys/class/net/*/wireless; do
+            [ -d "$wireless" ] || continue
+            interface=${wireless%/wireless}
+            interface=${interface##*/}
+            wpa_cli -i "$interface" status || true
+            ip address show dev "$interface"
+        done
+        ip route
+        exit 0
+        ;;
+    run) ;;
+    *) echo "Usage: $0 {run|status}" >&2; exit 1 ;;
+esac
+if ! tr '\000' '\n' < /proc/device-tree/compatible 2>/dev/null | grep -qx 'avnet,ultra96-rev1'; then
+    echo 'Refusing Wi-Fi activation on an unidentified board' >&2
+    exit 1
+fi
+expected=$(cat /etc/axi-lab-vendor-kernel)
+[ "$(uname -r)" = "$expected" ] || { logger -t axi-wifi 'Vendor module/kernel mismatch'; exit 1; }
+modprobe wl18xx
+modprobe wlcore_sdio
+interface=
+for attempt in $(seq 1 30); do
+    for wireless in /sys/class/net/*/wireless; do
+        [ -d "$wireless" ] || continue
+        device=${wireless%/wireless}
+        driver=$(readlink -f "$device/device/driver" || true)
+        [ "${driver##*/}" = wl18xx_driver ] || continue
+        [ -z "$interface" ] || { logger -t axi-wifi 'Multiple onboard wireless interfaces'; exit 1; }
+        interface=${device##*/}
+    done
+    [ -z "$interface" ] || break
+    sleep 1
+done
+[ -n "$interface" ] || { logger -t axi-wifi 'No wl18xx wireless interface after 30 seconds; inspect rfkill and dmesg'; exit 1; }
+supplicant=
+events=
+cleanup() {
+    trap - EXIT TERM INT
+    /usr/sbin/axi-lab-wifi-event "$interface" DISCONNECTED || true
+    [ -z "$events" ] || kill "$events" 2>/dev/null || true
+    [ -z "$supplicant" ] || kill "$supplicant" 2>/dev/null || true
+    wait 2>/dev/null || true
+    rm -f /run/axi-lab-wifi.pid
+}
+trap cleanup EXIT
+trap 'exit 0' TERM INT
+umask 077
+mkdir -p /run/wpa_supplicant
+ip link set dev "$interface" up
+while :; do
+    wpa_supplicant -Dnl80211 -i "$interface" -c /etc/wpa_supplicant-lab.conf -s &
+    supplicant=$!
+    wpa_cli -i "$interface" -a /usr/sbin/axi-lab-wifi-event >/dev/null 2>&1 &
+    events=$!
+    logger -t axi-wifi "Supplicant started on $interface; association is not yet verified"
+    while kill -0 "$supplicant" 2>/dev/null && kill -0 "$events" 2>/dev/null; do sleep 2; done
+    kill "$supplicant" 2>/dev/null || true
+    kill "$events" 2>/dev/null || true
+    wait "$supplicant" 2>/dev/null || true
+    wait "$events" 2>/dev/null || true
+    events=
+    supplicant=
+    /usr/sbin/axi-lab-wifi-event "$interface" DISCONNECTED || true
+    logger -t axi-wifi 'Supplicant or event worker exited; retrying in five seconds'
+    sleep 5
+done

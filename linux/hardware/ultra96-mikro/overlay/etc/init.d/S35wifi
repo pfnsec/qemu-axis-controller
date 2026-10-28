@@ -1,0 +1,26 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+    start)
+        if ! tr '\000' '\n' < /proc/device-tree/compatible 2>/dev/null | grep -qx 'avnet,ultra96-rev1'; then
+            echo 'Wi-Fi skipped: not an identified Ultra96 V1'
+            exit 0
+        fi
+        if ! grep -Eq '^[[:space:]]*network=\{' /etc/wpa_supplicant-lab.conf; then
+            echo 'Wi-Fi skipped: no private network profiles installed'
+            exit 0
+        fi
+        if [ -f /run/axi-lab-wifi.pid ] && kill -0 "$(cat /run/axi-lab-wifi.pid)" 2>/dev/null; then exit 0; fi
+        start-stop-daemon -S -q -b -m -p /run/axi-lab-wifi.pid \
+            -x /usr/sbin/axi-lab-wifi -- run
+        ;;
+    stop)
+        start-stop-daemon -K -q -p /run/axi-lab-wifi.pid || true
+        ;;
+    restart)
+        "$0" stop
+        sleep 2
+        "$0" start
+        ;;
+    *) echo "Usage: $0 {start|stop|restart}" >&2; exit 1 ;;
+esac

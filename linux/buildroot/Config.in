@@ -1,0 +1,3 @@
+source "$BR2_EXTERNAL_AXI_LAB_PATH/package/axi-spike/Config.in"
+source "$BR2_EXTERNAL_AXI_LAB_PATH/package/framefx/Config.in"
+source "$BR2_EXTERNAL_AXI_LAB_PATH/package/axi-mikro-display/Config.in"

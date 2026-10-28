@@ -1,0 +1,4 @@
+/root d 0700 0 0 - - - - -
+/root/.ssh d 0700 0 0 - - - - -
+/root/.ssh/authorized_keys f 0600 0 0 - - - - -
+/etc/wpa_supplicant-lab.conf f 0600 0 0 - - - - -

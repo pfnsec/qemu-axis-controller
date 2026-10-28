@@ -1,0 +1,70 @@
+Project licensing and dependency provenance
+
+The project owner has not selected a license for original project code.
+No blanket third-party or project redistribution license is asserted here.
+Select the project license before external distribution; this does not prevent
+local development. No copyright ownership is assigned by this notice.
+The experimental Linux module declares MODULE_LICENSE("GPL") for kernel API
+compatibility, and its Buildroot package records GPL-2.0. These declarations
+are not a blanket license for unrelated original project files; include the
+module and QEMU additions in the owner's licensing review before distribution.
+
+Dependency source locations, revisions and archive SHA256 values are recorded
+in versions.lock. Downloads are made over HTTPS and checked against those
+hashes. Release signatures have not been independently verified.
+
+QEMU: GPL version 2 with per-file exceptions and separately licensed components.
+Consult COPYING and LICENSE in the pinned release. Its dtc subproject has its
+own GPL/BSD licensing. QEMU's bundled Python wheels retain their own licenses.
+
+Buildroot: GPL version 2. Its generated Linux system is a collection of
+separately licensed components, not a single Buildroot-licensed binary.
+Linux and BusyBox include GPL obligations; the Bootlin toolchain includes GCC,
+binutils, glibc and associated source/license obligations. Run make legal-info
+and inspect artifacts/build/guest/legal-info before redistribution. That output
+is supporting material, not an automatic assertion of legal completeness.
+
+Verilator: installed host tool, dual LGPL-3.0/Artistic-2.0 licensing upstream;
+consult the installed version's documentation for generated-output terms.
+
+Xilinx libsystemctlm-soc and systemctlm-cosim-demo: reference-only checkouts.
+Remote-Port protocol and representative demo sources contain MIT-style grants;
+other files and submodules must be reviewed individually before reuse. The
+foundation does not copy, compile or link their code, or fetch their submodules.
+
+Avnet board definitions: reference-only, including the historical Ultra96 V1
+tag. Preserve source notices; the older snapshot's disclaimer is not treated
+as a blanket redistribution grant. No board XML is copied into project sources.
+
+AMD Vivado/Vitis: proprietary installed software. No installation, license file,
+firmware or generated bitstream is included in project sources. Tool discovery
+does not grant distribution rights or demonstrate hardware compatibility.
+
+The optional H0 hardware packer downloads Avnet's Ultra96 V1 PYNQ 3.0.1 image;
+its URL, release revision and locally measured hashes are recorded separately
+in fpga/ultra96-v1/boot-image.lock.json. The derived image retains third-party
+firmware, Linux, Ubuntu/PYNQ packages and their notices. It is not covered by
+the simulation Buildroot legal-info output. No redistribution-completeness
+claim is made for the vendor or derived image; inspect its component licenses
+and corresponding-source requirements before distributing it.
+
+The mikro hardware candidate retains that vendor boot partition, including
+firmware and Linux, but replaces its root filesystem with Buildroot userspace.
+It additionally includes Dropbear; inspect the pinned package's license files.
+The networking iteration also includes wpa_supplicant, iw/libnl, OpenSSL/curl,
+CA certificate data and e2fsprogs dependencies. Its copied vendor Wi-Fi modules,
+firmware and regulatory database retain their separate obligations; the image
+includes the vendor linux-firmware copyright file under
+/usr/share/licenses/vendor-wifi/copyright. Images optionally containing private
+AP credentials must not be published regardless of dependency licensing.
+The original axi-mikro-display package records its license as UNKNOWN, pending
+the owner's decision. Simulation legal-info does not cover this separate build.
+For its userspace inventory, invoke the pinned Buildroot make with the same
+BR2_EXTERNAL and O=artifacts/build/ultra96-mikro settings and target legal-info.
+The optional PL profile instead uses O=artifacts/build/ultra96-mikro-pl and adds
+CPython/libffi plus the original loader, common driver/native applications and
+Vivado-generated PL payload. Review that profile's legal-info and the existing
+FPGA/vendor obligations separately; the default profile's inventory is not its
+complete inventory.
+Review that output together with the retained vendor components; no complete
+redistribution clearance is asserted.

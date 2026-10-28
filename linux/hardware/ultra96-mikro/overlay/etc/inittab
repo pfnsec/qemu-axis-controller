@@ -1,0 +1,15 @@
+::sysinit:/bin/mount -t proc proc /proc
+::sysinit:/bin/sh -c 'mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev'
+::sysinit:/bin/mount -o remount,rw /
+::sysinit:/bin/mkdir -p /dev/pts /dev/shm /run/lock/subsys
+::sysinit:/bin/mount -a
+null::sysinit:/bin/ln -sf /proc/self/fd /dev/fd
+null::sysinit:/bin/ln -sf /proc/self/fd/0 /dev/stdin
+null::sysinit:/bin/ln -sf /proc/self/fd/1 /dev/stdout
+null::sysinit:/bin/ln -sf /proc/self/fd/2 /dev/stderr
+::sysinit:/bin/hostname -F /etc/hostname
+::sysinit:/etc/init.d/rcS
+console::respawn:/sbin/getty -L console 115200 vt100
+ttyGS0::respawn:/usr/sbin/axi-lab-usb-console
+::shutdown:/etc/init.d/rcK
+::shutdown:/bin/umount -a -r

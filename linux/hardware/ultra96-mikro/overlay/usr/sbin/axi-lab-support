@@ -1,0 +1,13 @@
+#!/bin/sh
+set -eu
+umask 077
+axi-lab-probe
+temporary=$(mktemp -d /tmp/axi-support.XXXXXX)
+trap 'rm -rf "$temporary"' EXIT TERM INT
+cp /var/lib/axi-lab/boot-report.txt /etc/axi-lab-release /etc/axi-lab-vendor.sha256 "$temporary/"
+for filename in /var/lib/axi-lab/display.log /var/log/messages; do
+    [ ! -f "$filename" ] || tail -c 131072 "$filename" > "$temporary/${filename##*/}"
+done
+output=/tmp/axi-lab-support-$(date -u +%Y%m%dT%H%M%S)-$$.tar.gz
+tar -czf "$output" -C "$temporary" .
+echo "$output"

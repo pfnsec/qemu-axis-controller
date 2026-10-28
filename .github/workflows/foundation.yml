@@ -1,0 +1,72 @@
+name: Foundation through M4 and platform stress
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  headless:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc-multilib clang lld git ninja-build meson python3 python3-venv python3-pip libglib2.0-dev libpixman-1-dev libattr1-dev zlib1g-dev pkg-config bison flex perl patch bc cpio rsync file wget curl tar xz-utils bzip2 gzip unzip verilator
+      - name: Inventory and tooling tests
+        run: make doctor test toolcheck JOBS=2
+      - name: Standalone AXI fabric, framefx images, faults and replay
+        run: make rtl-test JOBS=2
+      - name: Build and boot stock AArch64 guest
+        run: make boot-smoke JOBS=2 BOOT_TIMEOUT=180
+      - name: Linux RTL concurrency and fault tests
+        run: make spike-test JOBS=2 BOOT_TIMEOUT=60
+      - name: Linux framefx images, ownership, timeout and fault tests
+        run: make demo-sim JOBS=2 BOOT_TIMEOUT=180
+      - name: Adversarial protocol, randomized RTL and debug-kernel SMP stress
+        run: make stress-test JOBS=2 STRESS_CASES=48 STRESS_JOBS=64 STRESS_TIMEOUT=600
+      - name: Control-path faults and runtime ARM32 compatibility
+        run: make hardening-test JOBS=2 BOOT_TIMEOUT=180
+      - name: Report
+        if: always()
+        run: make report
+      - name: Package Linux demo and stress evidence
+        if: always()
+        run: |
+          directories=(artifacts/demo-*/)
+          if [ -d "${directories[0]}" ]; then
+            tar -czf artifacts/demo-evidence.tar.gz "${directories[@]}"
+          fi
+          directories=(artifacts/stress-*/)
+          if [ -d "${directories[0]}" ]; then
+            tar -czf artifacts/stress-evidence.tar.gz "${directories[@]}"
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: foundation-evidence
+          path: |
+            artifacts/logs/
+            artifacts/host/
+            artifacts/boot-*/
+            artifacts/latest-boot.json
+            artifacts/spike-*/
+            artifacts/latest-spike.json
+            artifacts/rtl-*/
+            artifacts/latest-rtl.json
+            artifacts/framefx-*/
+            artifacts/latest-framefx.json
+            artifacts/demo-evidence.tar.gz
+            artifacts/latest-demo.json
+            artifacts/stress-evidence.tar.gz
+            artifacts/latest-stress.json
+            artifacts/hardening-*/
+            artifacts/latest-hardening.json
+            artifacts/toolcheck.json
+            artifacts/tests.json
+            artifacts/report.json

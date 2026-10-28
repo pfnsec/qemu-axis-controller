@@ -1,0 +1,14 @@
+#!/bin/sh
+set -eu
+case "${1:-}" in
+    start)
+        touch /run/resolv.conf
+        start-stop-daemon -S -b -m -p /run/mdev.pid -x /sbin/mdev -- -df
+        mdev -s
+        echo 'Device manager ready; Wi-Fi modules are loaded explicitly by the board-only service'
+        ;;
+    stop)
+        start-stop-daemon -K -p /run/mdev.pid
+        ;;
+    *) echo "Usage: $0 {start|stop}" >&2; exit 1 ;;
+esac

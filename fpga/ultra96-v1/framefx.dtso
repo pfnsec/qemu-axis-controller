@@ -1,0 +1,24 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    fragment@0 {
+        target = <&fpga_full>;
+        __overlay__ {
+            #address-cells = <2>;
+            #size-cells = <2>;
+            dma-ranges = <0 0 0 0 0 0x80000000>;
+
+            framefx@80000000 {
+                compatible = "example,axi-framefx-1.0";
+                reg = <0 0x80000000 0 0x1000>;
+                interrupt-parent = <&gic>;
+                interrupts = <0 89 4>;
+                clocks = <&zynqmp_clk 71>;
+                assigned-clocks = <&zynqmp_clk 71>;
+                assigned-clock-rates = <100000000>;
+                status = "okay";
+            };
+        };
+    };
+};

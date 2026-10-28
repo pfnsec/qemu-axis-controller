@@ -1,0 +1,5 @@
+config BR2_PACKAGE_AXI_MIKRO_DISPLAY
+	bool "Ultra96 mikro CPU framebuffer demo"
+	help
+	  CPU reference visualization through the kernel framebuffer interface.
+	  Does not load or exercise framefx PL logic, DMA or IRQs.

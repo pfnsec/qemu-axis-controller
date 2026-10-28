@@ -1,0 +1,3 @@
+config BR2_PACKAGE_FRAMEFX
+	bool "framefx driver and image test"
+	depends on BR2_LINUX_KERNEL

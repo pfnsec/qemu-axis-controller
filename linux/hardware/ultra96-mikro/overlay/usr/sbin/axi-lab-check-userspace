@@ -1,0 +1,40 @@
+#!/bin/sh
+set -eu
+umask 077
+test "$(stat -c %a /etc/wpa_supplicant-lab.conf)" = 600
+test "$(stat -c %a /root/.ssh/authorized_keys)" = 600
+test -s /etc/ssl/certs/ca-certificates.crt
+test -x /usr/bin/scp
+command -v ntpd >/dev/null
+test -x /usr/sbin/e2fsck -o -x /sbin/e2fsck
+wpa_supplicant -v
+wpa_cli -v
+iw --version
+curl --version | grep '^Protocols:.*https'
+sha256sum -c /etc/axi-lab-vendor.sha256 > /run/vendor-files-check.log
+if wpa_supplicant -Dnone -iaxi-validate -c /etc/wpa_supplicant-lab.conf -dd > /run/wpa-config-check.log 2>&1; then
+    echo 'Unexpected success of intentionally unavailable Wi-Fi driver' >&2
+    exit 1
+fi
+grep -q "Unsupported driver 'none'" /run/wpa-config-check.log
+if grep -Eq 'Failed to read|errors found|Invalid configuration' /run/wpa-config-check.log; then exit 1; fi
+if [ -d /opt/axi-lab/pl ]; then
+    sha256sum -c /etc/axi-lab-pl.sha256 > /run/pl-files-check.log
+    python3 - <<'PY'
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+
+directory = Path('/opt/axi-lab/pl')
+manifest = json.loads((directory / 'load-manifest.json').read_text())
+if hashlib.sha256((directory / 'pl_load.py').read_bytes()).hexdigest() != manifest['loader_sha256']:
+    raise RuntimeError('PL loader hash mismatch')
+spec = importlib.util.spec_from_file_location('pl_load', directory / 'pl_load.py')
+loader = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(loader)
+loader.checked_bundle(directory)
+print('AXI_LAB_MIKRO_PL_BUNDLE_PASS programming=NOT_ATTEMPTED')
+PY
+fi
+echo 'AXI_LAB_MIKRO_SERVICES_PASS wifi=CONFIG_ONLY modules=HASH_ONLY tls=BUILD_ONLY'
